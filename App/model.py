@@ -36,6 +36,12 @@ def load_model() -> nn.Module:
         if os.path.exists(alt_model_path):
             model_path = alt_model_path
 
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(
+            f"Model weights not found at {model_path}. "
+            "Add best_model.pth (e.g. Railway volume mounted at /app/Model) or set MODEL_PATH."
+        )
+
     # Re-create architecture (must match training setup)
     model = models.resnet50(pretrained=False)
     model.fc = nn.Linear(model.fc.in_features, 2)

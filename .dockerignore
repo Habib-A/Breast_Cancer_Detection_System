@@ -1,0 +1,9 @@
+.venv/
+.git/
+**/__pycache__/
+**/*.pyc
+*.py[cod]
+.ipynb_checkpoints/
+Model/*.pth
+.cursor/
+**/.DS_Store
