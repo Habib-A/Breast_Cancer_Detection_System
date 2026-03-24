@@ -7,11 +7,23 @@ STREAMLIT_PORT="${PORT:-8501}"
 
 mkdir -p Model
 
-# Weights are not in git. For Railway: set MODEL_DOWNLOAD_URL to a direct HTTPS link to best_model.pth,
-# or attach a volume with the file at /app/Model/best_model.pth.
+# Weights are not in git. On Railway set MODEL_DOWNLOAD_URL to a direct HTTPS link (e.g. GitHub Release asset).
+# Optional: MODEL_DOWNLOAD_BEARER_TOKEN for private files (sent as Authorization: Bearer ...).
 if [ -n "${MODEL_DOWNLOAD_URL:-}" ] && [ ! -f Model/best_model.pth ]; then
   echo "Downloading model weights..."
-  curl -fL --connect-timeout 30 --max-time 900 "${MODEL_DOWNLOAD_URL}" -o Model/best_model.pth
+  CURL_HEADERS=()
+  if [ -n "${MODEL_DOWNLOAD_BEARER_TOKEN:-}" ]; then
+    CURL_HEADERS+=(-H "Authorization: Bearer ${MODEL_DOWNLOAD_BEARER_TOKEN}")
+  fi
+  curl -fL --connect-timeout 30 --max-time 900 \
+    --retry 3 --retry-delay 5 --retry-all-errors \
+    "${CURL_HEADERS[@]}" \
+    -o Model/best_model.pth \
+    "${MODEL_DOWNLOAD_URL}"
+  if [ ! -s Model/best_model.pth ]; then
+    echo "ERROR: Model download produced an empty file. Check MODEL_DOWNLOAD_URL (must be a direct file URL, not an HTML page)."
+    exit 1
+  fi
 fi
 
 export BACKEND_URL="${BACKEND_URL:-http://127.0.0.1:${API_PORT}}"

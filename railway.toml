@@ -3,6 +3,8 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
+# Set in Railway Variables: MODEL_DOWNLOAD_URL = https://.../best_model.pth (direct download).
+# Optional: MODEL_DOWNLOAD_BEARER_TOKEN for private URLs.
 startCommand = "./start.sh"
 # Public port is Streamlit; health endpoint from Streamlit runtime
 healthcheckPath = "/_stcore/health"
