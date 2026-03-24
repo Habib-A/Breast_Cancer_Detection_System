@@ -109,7 +109,9 @@ if uploaded_file is not None:
             except requests.exceptions.ConnectionError:
                 st.error(
                     "Cannot reach the backend API. "
-                    f"Make sure FastAPI is running at `{BACKEND_URL}`."
+                    f"Expected URL: `{BACKEND_URL}`. "
+                    "On Railway, the API must start successfully (usually needs `Model/best_model.pth` "
+                    "via a volume or `MODEL_DOWNLOAD_URL`). Check deployment logs if the sidebar shows offline."
                 )
                 st.stop()
             except requests.exceptions.Timeout:
