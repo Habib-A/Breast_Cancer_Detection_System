@@ -1,0 +1,12 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Railway exposes $PORT automatically — we route it to Streamlit (user-facing).
+# FastAPI runs internally on 8000 and is accessed by Streamlit within the container.
+startCommand = "./start.sh"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

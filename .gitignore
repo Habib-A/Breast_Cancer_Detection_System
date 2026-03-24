@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Local model artifacts
+Model/*.pth
+
+# Notebook checkpoints
+.ipynb_checkpoints/
