@@ -3,7 +3,6 @@ import requests
 import os
 from PIL import Image
 from io import BytesIO
-import pandas as pd
 import altair as alt
 
 # ── Page config ──────────────────────────────────────────────────────────────
@@ -282,12 +281,10 @@ with right_col:
 
             st.markdown(f"**Benign:** {benign_count}  |  **Malignant:** {malignant_count}")
 
-            pie_df = pd.DataFrame(
-                {
-                    "Class": ["Benign", "Malignant"],
-                    "Count": [benign_count, malignant_count],
-                }
-            )
+            pie_df = [
+                {"Class": "Benign", "Count": benign_count},
+                {"Class": "Malignant", "Count": malignant_count},
+            ]
             pie_chart = (
                 alt.Chart(pie_df)
                 .mark_arc(innerRadius=55)

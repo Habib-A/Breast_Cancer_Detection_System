@@ -26,6 +26,8 @@ RUN pip install --no-cache-dir \
     python-multipart==0.0.9 \
     streamlit==1.35.0 \
     requests==2.32.2 \
+    numpy==1.26.4 \
+    pandas==2.3.3 \
     Pillow==10.3.0
 
 # Copy application code (repo uses capitalized folder names)
