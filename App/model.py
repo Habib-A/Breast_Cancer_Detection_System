@@ -24,6 +24,11 @@ def get_device() -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def is_model_loaded() -> bool:
+    """Used by the backend /health endpoint to avoid serving requests early."""
+    return _model is not None
+
+
 def load_model() -> nn.Module:
     """Load ResNet50 with saved weights. Called once at startup."""
     global _model, _device

@@ -1,7 +1,8 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
-from App.model import load_model, predict
+from App.model import load_model, predict, is_model_loaded
 import uvicorn
 
 
@@ -31,8 +32,17 @@ app.add_middleware(
 
 @app.get("/health")
 def health_check():
-    """Railway uses this to verify the service is alive."""
-    return {"status": "ok", "service": "breast-histopathology-api"}
+    """Health endpoint. Returns 503 until the model is fully loaded."""
+    if not is_model_loaded():
+        return JSONResponse(
+            status_code=503,
+            content={"status": "starting", "model_loaded": False},
+        )
+    return {
+        "status": "ok",
+        "service": "breast-histopathology-api",
+        "model_loaded": True,
+    }
 
 
 @app.post("/predict")

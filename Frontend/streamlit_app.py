@@ -101,7 +101,7 @@ if uploaded_file is not None:
                     files={"file": (uploaded_file.name,
                                     uploaded_file.getvalue(),
                                     uploaded_file.type)},
-                    timeout=30,
+                    timeout=120,
                 )
                 response.raise_for_status()
                 result = response.json()
@@ -115,7 +115,7 @@ if uploaded_file is not None:
                 )
                 st.stop()
             except requests.exceptions.Timeout:
-                st.error("Request timed out. The model may be loading - try again in a moment.")
+                st.error("Request timed out. If this is the first request after deploy, give it a moment (model loading can take time on Railway).")
                 st.stop()
             except requests.exceptions.HTTPError as e:
                 st.error(f"API error: {e.response.status_code} - {e.response.text}")
