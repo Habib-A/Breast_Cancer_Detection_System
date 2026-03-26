@@ -2,10 +2,11 @@ import streamlit as st
 import requests
 import os
 from PIL import Image
+from io import BytesIO
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Breast Histopathology Classifier",
+    page_title="Breast Histopathology Analysis",
     page_icon="🔬",
     layout="centered",
     initial_sidebar_state="collapsed",
@@ -15,8 +16,9 @@ st.set_page_config(
 st.markdown("""
 <style>
     /* Clean medical aesthetic */
-    .main { background-color: #f8f9fa; }
-    .stApp { font-family: 'Source Sans Pro', sans-serif; }
+    body { background-color: #f7f2ff; }
+    .main { background-color: #f7f2ff; }
+    .stApp { font-family: 'Source Sans Pro', sans-serif; color: white; }
 
     .result-card {
         padding: 1.5rem;
@@ -65,91 +67,121 @@ BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 PREDICT_ENDPOINT = f"{BACKEND_URL}/predict"
 
 # ── Header ────────────────────────────────────────────────────────────────────
-st.title("🔬 Breast Histopathology Classifier")
+st.title("🔬 Breast Histopathology Analysis")
 st.markdown(
-    "Upload a histopathology patch image to classify it as **benign** or **malignant** "
+    "Upload one or more histopathology patch images to analyze and classify them as **benign** or **malignant** "
     "using a fine-tuned ResNet50 model trained on the BreakHis dataset."
 )
 st.divider()
 
-# ── Image upload ──────────────────────────────────────────────────────────────
-uploaded_file = st.file_uploader(
-    "Upload a histopathology image (PNG or JPEG)",
-    type=["png", "jpg", "jpeg"],
-    help="Ideally a 224×224 patch at 40×, 100×, 200×, or 400× magnification",
+# ── Upload options (images vs folder) + 2-column layout ─────────────────────
+upload_mode = st.radio(
+    "Upload mode",
+    ["Upload images", "Upload folder"],
+    horizontal=True,
 )
 
-if uploaded_file is not None:
-    col1, col2 = st.columns([1, 1], gap="large")
+uploader_label = "Upload images (PNG or JPEG)"
+uploader_help = "Select one or multiple image files. Ideally 224×224 patches."
+if upload_mode == "Upload folder":
+    uploader_label = "Upload folder (select multiple files)"
+    uploader_help = "Choose multiple images from your folder (Streamlit folder upload uses multi-select)."
 
-    with col1:
-        st.markdown("**Uploaded image**")
-        image = Image.open(uploaded_file)
-        st.image(image, use_column_width=True)
-        st.caption(
-            f"{uploaded_file.name} · {image.size[0]}×{image.size[1]}px · "
-            f"{len(uploaded_file.getvalue()) / 1024:.1f} KB"
-        )
+uploaded_files = st.file_uploader(
+    uploader_label,
+    type=["png", "jpg", "jpeg"],
+    accept_multiple_files=True,
+    help=uploader_help,
+)
 
-    with col2:
-        st.markdown("**Prediction**")
+left_col, right_col = st.columns([1, 1], gap="large")
+
+with left_col:
+    st.markdown("**Uploaded images (preview)**")
+    if uploaded_files:
+        preview_cols = st.columns(3, gap="small")
+        for idx, uploaded_file in enumerate(uploaded_files):
+            image = Image.open(BytesIO(uploaded_file.getvalue()))
+            with preview_cols[idx % 3]:
+                st.image(image, use_column_width=True)
+                st.caption(uploaded_file.name)
+    else:
+        st.info("Upload images or a folder to see previews here.")
+
+with right_col:
+    st.markdown("**Prediction results**")
+    if uploaded_files:
+        st.caption(f"{len(uploaded_files)} image(s) uploaded")
 
         with st.spinner("Running inference..."):
-            try:
-                response = requests.post(
-                    PREDICT_ENDPOINT,
-                    files={"file": (uploaded_file.name,
-                                    uploaded_file.getvalue(),
-                                    uploaded_file.type)},
-                    timeout=120,
-                )
-                response.raise_for_status()
-                result = response.json()
+            results = []
+            for uploaded_file in uploaded_files:
+                try:
+                    response = requests.post(
+                        PREDICT_ENDPOINT,
+                        files={"file": (uploaded_file.name,
+                                        uploaded_file.getvalue(),
+                                        uploaded_file.type)},
+                        timeout=120,
+                    )
+                    response.raise_for_status()
+                    result = response.json()
+                    results.append(
+                        {
+                            "filename": uploaded_file.name,
+                            **result,
+                        }
+                    )
+                except requests.exceptions.ConnectionError:
+                    st.error(
+                        "Cannot reach the backend API. "
+                        f"Expected URL: `{BACKEND_URL}`. "
+                        "On Railway, ensure FastAPI is healthy and the model weights are available "
+                        "(`Model/best_model.pth` via volume, or `MODEL_DOWNLOAD_URL`)."
+                    )
+                    st.stop()
+                except requests.exceptions.Timeout:
+                    st.error("Request timed out. If this is the first request after deploy, try again in a moment.")
+                    st.stop()
+                except requests.exceptions.HTTPError as e:
+                    st.error(f"API error for `{uploaded_file.name}`: {e.response.status_code} - {e.response.text}")
+                    st.stop()
+                except Exception as e:
+                    st.error(f"Unexpected error for `{uploaded_file.name}`: {e}")
+                    st.stop()
 
-            except requests.exceptions.ConnectionError:
-                st.error(
-                    "Cannot reach the backend API. "
-                    f"Expected URL: `{BACKEND_URL}`. "
-                    "On Railway, the API must start successfully (usually needs `Model/best_model.pth` "
-                    "via a volume or `MODEL_DOWNLOAD_URL`). Check deployment logs if the sidebar shows offline."
-                )
-                st.stop()
-            except requests.exceptions.Timeout:
-                st.error("Request timed out. If this is the first request after deploy, give it a moment (model loading can take time on Railway).")
-                st.stop()
-            except requests.exceptions.HTTPError as e:
-                st.error(f"API error: {e.response.status_code} - {e.response.text}")
-                st.stop()
-            except Exception as e:
-                st.error(f"Unexpected error: {e}")
-                st.stop()
+        for result in results:
+            prediction = result["prediction"]
+            confidence = result["confidence"]
+            probs = result["probabilities"]
 
-        prediction = result["prediction"]
-        confidence = result["confidence"]
-        probs = result["probabilities"]
+            card_class = "result-malignant" if prediction == "malignant" else "result-benign"
+            icon = "⚠️" if prediction == "malignant" else "✅"
 
-        card_class = "result-malignant" if prediction == "malignant" else "result-benign"
-        icon = "⚠️" if prediction == "malignant" else "✅"
+            st.markdown(
+                f"""
+                <div class="result-card {card_class}">
+                    <div class="result-title">{icon} {prediction.capitalize()}</div>
+                    <div class="confidence-text">
+                        Confidence: <strong>{confidence}%</strong>
+                    </div>
+                    <div class="confidence-text" style="opacity:0.75;">
+                        File: {result['filename']}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        st.markdown(
-            f"""
-            <div class="result-card {card_class}">
-                <div class="result-title">{icon} {prediction.capitalize()}</div>
-                <div class="confidence-text">Confidence: <strong>{confidence}%</strong></div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            st.markdown("**Class probabilities**")
+            st.markdown('<p class="prob-bar-label">Benign</p>', unsafe_allow_html=True)
+            st.progress(probs["benign"] / 100)
+            st.caption(f"{probs['benign']}%")
 
-        st.markdown("**Class probabilities**")
-
-        st.markdown('<p class="prob-bar-label">Benign</p>', unsafe_allow_html=True)
-        st.progress(probs["benign"] / 100)
-        st.caption(f"{probs['benign']}%")
-
-        st.markdown('<p class="prob-bar-label">Malignant</p>', unsafe_allow_html=True)
-        st.progress(probs["malignant"] / 100)
-        st.caption(f"{probs['malignant']}%")
+            st.markdown('<p class="prob-bar-label">Malignant</p>', unsafe_allow_html=True)
+            st.progress(probs["malignant"] / 100)
+            st.caption(f"{probs['malignant']}%")
+            st.divider()
 
         st.markdown(
             '<div class="disclaimer">⚕️ <strong>For research purposes only.</strong> '
@@ -157,8 +189,8 @@ if uploaded_file is not None:
             'Always consult a qualified pathologist.</div>',
             unsafe_allow_html=True,
         )
-else:
-    st.info("👆 Upload a histopathology patch image above to get started.")
+    else:
+        st.info("👆 Upload histopathology patch images above to get started.")
 
     with st.expander("About this model"):
         st.markdown("""
