@@ -294,10 +294,10 @@ with right_col:
                         "Class:N",
                         scale=alt.Scale(domain=["Benign", "Malignant"], range=["#38a169", "#e53e3e"]),
                     ),
-                    tooltip=["Class", "Count"],
+                    tooltip=[alt.Tooltip("Class:N"), alt.Tooltip("Count:Q")],
                 )
             )
-            pie_text = pie_chart.mark_text(radius=105, size=12).encode(text="Count:Q")
+            pie_text = pie_chart.mark_text(radius=105, size=12).encode(text=alt.Text("Count:Q"))
             st.altair_chart((pie_chart + pie_text).properties(height=220), use_container_width=True)
 
             # No fixed height — a set height (e.g. 360px) reserves space and shows blank rows.
