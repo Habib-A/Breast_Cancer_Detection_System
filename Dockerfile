@@ -26,6 +26,7 @@ RUN pip install --no-cache-dir \
     python-multipart==0.0.9 \
     streamlit==1.35.0 \
     requests==2.32.2 \
+    matplotlib==3.8.4 \
     Pillow==10.3.0
 
 # Copy application code (repo uses capitalized folder names)
@@ -40,6 +41,3 @@ RUN chmod +x start.sh
 EXPOSE 8000 8501
 
 CMD ["./start.sh"]
-
-# force rebuild
-RUN echo "rebuild"

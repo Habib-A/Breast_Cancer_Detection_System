@@ -1,9 +1,15 @@
+import base64
 import streamlit as st
 import requests
 import os
 from PIL import Image
 from io import BytesIO
-import altair as alt
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.patches import Wedge
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -281,29 +287,75 @@ with right_col:
 
             st.markdown(f"**Benign:** {benign_count}  |  **Malignant:** {malignant_count}")
 
-            # Columnar dict only — do not import pandas (avoids NumPy wheel clashes with PyTorch in Docker).
-            pie_source = {
-                "Class": ["Benign", "Malignant"],
-                "Count": [benign_count, malignant_count],
-            }
-            pie_chart = (
-                alt.Chart(pie_source)
-                .mark_arc(innerRadius=55)
-                .encode(
-                    theta=alt.Theta(field="Count", type="quantitative"),
-                    color=alt.Color(
-                        field="Class",
-                        type="nominal",
-                        scale=alt.Scale(domain=["Benign", "Malignant"], range=["#38a169", "#e53e3e"]),
-                        legend=alt.Legend(title=None),
-                    ),
-                    tooltip=[
-                        alt.Tooltip(field="Class", type="nominal"),
-                        alt.Tooltip(field="Count", type="quantitative"),
-                    ],
+            # Matplotlib pie (Altair + Streamlit Vega-Lite path is brittle without pandas / across versions).
+            total_n = benign_count + malignant_count
+            if total_n == 0:
+                st.caption("No predictions to chart.")
+            else:
+                # True half-donut: only 180° arc via Wedge (pie + ylim often redraws as a full ring).
+                fig, ax = plt.subplots(figsize=(2.0, 1.05), dpi=110)
+                fig.patch.set_facecolor("none")
+                fig.patch.set_alpha(0)
+                ax.set_facecolor("none")
+                fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+                sizes = [benign_count, malignant_count]
+                colors = ["#38a169", "#e53e3e"]
+                outer_r = 1.0
+                inner_r = 0.48
+                radial_w = outer_r - inner_r
+
+                cursor_deg = 0.0
+                for i, val in enumerate(sizes):
+                    span = (val / total_n) * 180.0
+                    if span > 0:
+                        ax.add_patch(
+                            Wedge(
+                                (0, 0),
+                                outer_r,
+                                cursor_deg,
+                                cursor_deg + span,
+                                width=radial_w,
+                                facecolor=colors[i],
+                                edgecolor="white",
+                                linewidth=0.6,
+                            )
+                        )
+                        mid = np.radians(cursor_deg + span / 2.0)
+                        r_txt = (inner_r + outer_r) / 2.0
+                        ax.text(
+                            r_txt * np.cos(mid),
+                            r_txt * np.sin(mid),
+                            str(int(val)),
+                            ha="center",
+                            va="center",
+                            fontsize=7,
+                            color="white",
+                            fontweight="bold",
+                        )
+                    cursor_deg += span
+
+                ax.set_xlim(-1.05, 1.05)
+                ax.set_ylim(0.0, 1.05)
+                ax.set_aspect("equal", adjustable="box")
+                ax.axis("off")
+
+                # Center without nested st.columns (right_col is already a column; limit is one level).
+                buf = BytesIO()
+                fig.savefig(
+                    buf,
+                    format="png",
+                    dpi=110,
+                    bbox_inches="tight",
+                    pad_inches=0.01,
+                    transparent=True,
                 )
-            )
-            st.altair_chart(pie_chart.properties(height=220), use_container_width=True)
+                plt.close(fig)
+                b64 = base64.b64encode(buf.getvalue()).decode()
+                st.markdown(
+                    f'<div style="text-align:center"><img src="data:image/png;base64,{b64}" '
+                    'alt="Benign vs malignant counts" style="max-width:100%;height:auto;"/></div>',
+                    unsafe_allow_html=True,
+                )
 
             # No fixed height — a set height (e.g. 360px) reserves space and shows blank rows.
             st.dataframe(
