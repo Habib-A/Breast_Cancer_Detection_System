@@ -3,7 +3,6 @@ import requests
 import os
 from PIL import Image
 from io import BytesIO
-import pandas as pd
 import altair as alt
 
 # ── Page config ──────────────────────────────────────────────────────────────
@@ -282,10 +281,11 @@ with right_col:
 
             st.markdown(f"**Benign:** {benign_count}  |  **Malignant:** {malignant_count}")
 
-            # Single arc chart only (layered text on arcs often raises SchemaValidationError on deploy).
-            pie_source = pd.DataFrame(
-                {"Class": ["Benign", "Malignant"], "Count": [benign_count, malignant_count]}
-            )
+            # Columnar dict only — do not import pandas (avoids NumPy wheel clashes with PyTorch in Docker).
+            pie_source = {
+                "Class": ["Benign", "Malignant"],
+                "Count": [benign_count, malignant_count],
+            }
             pie_chart = (
                 alt.Chart(pie_source)
                 .mark_arc(innerRadius=55)

@@ -10,9 +10,6 @@ python-multipart==0.0.9
 # Frontend
 streamlit==1.35.0
 requests==2.32.2
-# Keep these pinned to avoid binary incompatibility on some Linux builds
-numpy==1.26.4
-pandas==2.3.3
 
 # Image processing
 Pillow==10.3.0
