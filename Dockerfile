@@ -40,3 +40,6 @@ RUN chmod +x start.sh
 EXPOSE 8000 8501
 
 CMD ["./start.sh"]
+
+# force rebuild
+RUN echo "rebuild"
