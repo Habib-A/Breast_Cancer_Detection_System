@@ -18,9 +18,10 @@ RUN pip install --no-cache-dir \
     torchvision==0.17.2+cpu \
     --index-url https://download.pytorch.org/whl/cpu
 
-# Install remaining dependencies
+# Remaining dependencies (numpy pinned first so pip does not upgrade to NumPy 2 after torch).
 COPY requirements.txt .
 RUN pip install --no-cache-dir \
+    "numpy>=1.26.4,<2.0.0" \
     fastapi==0.111.0 \
     uvicorn[standard]==0.29.0 \
     python-multipart==0.0.9 \
