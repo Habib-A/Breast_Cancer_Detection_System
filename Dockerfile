@@ -1,5 +1,3 @@
-# force rebuild
-RUN echo "no cache build"
 # CPU-only PyTorch image (~1.5GB vs ~5GB for CUDA)
 FROM python:3.11-slim-bookworm
 
@@ -45,3 +43,7 @@ RUN chmod +x start.sh
 EXPOSE 8000 8501
 
 CMD ["./start.sh"]
+
+
+# force rebuild
+RUN echo "rebuild"
