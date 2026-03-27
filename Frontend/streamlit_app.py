@@ -3,6 +3,7 @@ import requests
 import os
 from PIL import Image
 from io import BytesIO
+import pandas as pd
 import altair as alt
 
 # ── Page config ──────────────────────────────────────────────────────────────
@@ -281,24 +282,28 @@ with right_col:
 
             st.markdown(f"**Benign:** {benign_count}  |  **Malignant:** {malignant_count}")
 
-            pie_df = [
-                {"Class": "Benign", "Count": benign_count},
-                {"Class": "Malignant", "Count": malignant_count},
-            ]
+            # Single arc chart only (layered text on arcs often raises SchemaValidationError on deploy).
+            pie_source = pd.DataFrame(
+                {"Class": ["Benign", "Malignant"], "Count": [benign_count, malignant_count]}
+            )
             pie_chart = (
-                alt.Chart(pie_df)
+                alt.Chart(pie_source)
                 .mark_arc(innerRadius=55)
                 .encode(
-                    theta=alt.Theta("Count:Q"),
+                    theta=alt.Theta(field="Count", type="quantitative"),
                     color=alt.Color(
-                        "Class:N",
+                        field="Class",
+                        type="nominal",
                         scale=alt.Scale(domain=["Benign", "Malignant"], range=["#38a169", "#e53e3e"]),
+                        legend=alt.Legend(title=None),
                     ),
-                    tooltip=[alt.Tooltip("Class:N"), alt.Tooltip("Count:Q")],
+                    tooltip=[
+                        alt.Tooltip(field="Class", type="nominal"),
+                        alt.Tooltip(field="Count", type="quantitative"),
+                    ],
                 )
             )
-            pie_text = pie_chart.mark_text(radius=105, size=12).encode(text=alt.Text("Count:Q"))
-            st.altair_chart((pie_chart + pie_text).properties(height=220), use_container_width=True)
+            st.altair_chart(pie_chart.properties(height=220), use_container_width=True)
 
             # No fixed height — a set height (e.g. 360px) reserves space and shows blank rows.
             st.dataframe(
