@@ -2,8 +2,8 @@
 torch==2.2.2
 torchvision==0.17.2
 
-# Pin NumPy 1.x: NumPy 2 + slim Linux wheels sometimes break matplotlib/torch imports in Docker.
-numpy>=1.26.4,<2.0.0
+# Exact pin: PyTorch’s first pip step can pull NumPy 2; matplotlib then hits numpy._core import failures on slim images.
+numpy==1.26.4
 
 # API
 fastapi==0.111.0
