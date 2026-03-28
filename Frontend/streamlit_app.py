@@ -1,3 +1,4 @@
+import html
 import math
 import streamlit as st
 import requests
@@ -149,12 +150,36 @@ st.markdown("""
         font-weight: 600;
         margin-bottom: 2px;
     }
+    .results-table-wrap { overflow-x: auto; width: 100%; margin-top: 0.25rem; }
+    .results-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .results-table th, .results-table td {
+        border: 1px solid rgba(74, 61, 107, 0.22);
+        padding: 0.45rem 0.65rem;
+        text-align: left;
+    }
+    .results-table th { background: rgba(74, 61, 107, 0.1); font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── API config ────────────────────────────────────────────────────────────────
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 PREDICT_ENDPOINT = f"{BACKEND_URL}/predict"
+
+
+def _results_table_html(rows: list[dict]) -> str:
+    """HTML table only — avoids st.dataframe() / PyArrow (broken numpy._core in some Docker images)."""
+    if not rows:
+        return "<p>No results.</p>"
+    cols = list(rows[0].keys())
+    thead = "<tr>" + "".join(f"<th>{html.escape(str(c))}</th>" for c in cols) + "</tr>"
+    body = []
+    for row in rows:
+        tds = "".join(f"<td>{html.escape(str(row.get(c, '')))}</td>" for c in cols)
+        body.append(f"<tr>{tds}</tr>")
+    return (
+        '<div class="results-table-wrap"><table class="results-table">'
+        f"<thead>{thead}</thead><tbody>{''.join(body)}</tbody></table></div>"
+    )
 
 # ── Header (compact, centered, darker band) ───────────────────────────────────
 st.markdown(
@@ -337,12 +362,7 @@ with right_col:
                     unsafe_allow_html=True,
                 )
 
-            # No fixed height — a set height (e.g. 360px) reserves space and shows blank rows.
-            st.dataframe(
-                results_table,
-                use_container_width=True,
-                hide_index=True,
-            )
+            st.markdown(_results_table_html(results_table), unsafe_allow_html=True)
         else:
             st.info("👆 Upload histopathology patch images above to get started.")
 
