@@ -2,18 +2,14 @@
 torch==2.2.2
 torchvision==0.17.2
 
-# Exact pin: PyTorch’s first pip step can pull NumPy 2; matplotlib then hits numpy._core import failures on slim images.
-numpy==1.26.4
-
 # API
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 python-multipart==0.0.9
 
-# Frontend
+# Frontend (chart uses inline SVG — no matplotlib in Streamlit to avoid Docker/NumPy issues)
 streamlit==1.35.0
 requests==2.32.2
-matplotlib==3.8.4
 
 # Image processing
 Pillow==10.3.0

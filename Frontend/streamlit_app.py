@@ -1,15 +1,9 @@
-import base64
+import math
 import streamlit as st
 import requests
 import os
 from PIL import Image
 from io import BytesIO
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.patches import Wedge
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -287,73 +281,59 @@ with right_col:
 
             st.markdown(f"**Benign:** {benign_count}  |  **Malignant:** {malignant_count}")
 
-            # Matplotlib pie (Altair + Streamlit Vega-Lite path is brittle without pandas / across versions).
+            # Half-donut as inline SVG (no matplotlib — avoids NumPy/matplotlib import failures in Docker).
             total_n = benign_count + malignant_count
             if total_n == 0:
                 st.caption("No predictions to chart.")
             else:
-                # True half-donut: only 180° arc via Wedge (pie + ylim often redraws as a full ring).
-                fig, ax = plt.subplots(figsize=(2.0, 1.05), dpi=110)
-                fig.patch.set_facecolor("none")
-                fig.patch.set_alpha(0)
-                ax.set_facecolor("none")
-                fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
-                sizes = [benign_count, malignant_count]
+                cx, cy = 100.0, 100.0
+                r_out, r_in = 80.0, 38.0
                 colors = ["#38a169", "#e53e3e"]
-                outer_r = 1.0
-                inner_r = 0.48
-                radial_w = outer_r - inner_r
+                sizes = [benign_count, malignant_count]
 
-                cursor_deg = 0.0
+                def _polar(r: float, a: float) -> tuple[float, float]:
+                    return cx + r * math.cos(a), cy - r * math.sin(a)
+
+                def _annulus_path(a0: float, a1: float) -> str:
+                    n = 36
+                    pts = []
+                    for i in range(n + 1):
+                        t = a0 + (a1 - a0) * (i / n)
+                        pts.append(_polar(r_out, t))
+                    for i in range(n, -1, -1):
+                        t = a0 + (a1 - a0) * (i / n)
+                        pts.append(_polar(r_in, t))
+                    return (
+                        "M "
+                        + " L ".join(f"{p[0]:.2f},{p[1]:.2f}" for p in pts)
+                        + " Z"
+                    )
+
+                parts: list[str] = [
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 110" '
+                    'width="200" height="110" style="max-width:220px;height:auto;display:block;margin:0 auto">'
+                ]
+                cursor = 0.0
                 for i, val in enumerate(sizes):
-                    span = (val / total_n) * 180.0
+                    span = (val / total_n) * math.pi
                     if span > 0:
-                        ax.add_patch(
-                            Wedge(
-                                (0, 0),
-                                outer_r,
-                                cursor_deg,
-                                cursor_deg + span,
-                                width=radial_w,
-                                facecolor=colors[i],
-                                edgecolor="white",
-                                linewidth=0.6,
-                            )
+                        a0, a1 = cursor, cursor + span
+                        parts.append(
+                            f'<path d="{_annulus_path(a0, a1)}" fill="{colors[i]}" '
+                            'stroke="#ffffff" stroke-width="0.9" stroke-linejoin="round"/>'
                         )
-                        mid = np.radians(cursor_deg + span / 2.0)
-                        r_txt = (inner_r + outer_r) / 2.0
-                        ax.text(
-                            r_txt * np.cos(mid),
-                            r_txt * np.sin(mid),
-                            str(int(val)),
-                            ha="center",
-                            va="center",
-                            fontsize=7,
-                            color="white",
-                            fontweight="bold",
+                        mid = (a0 + a1) / 2.0
+                        tr = (r_in + r_out) / 2.0
+                        tx, ty = _polar(tr, mid)
+                        parts.append(
+                            f'<text x="{tx:.2f}" y="{ty:.2f}" fill="#ffffff" font-size="11" '
+                            'font-weight="700" text-anchor="middle" dominant-baseline="middle">'
+                            f"{int(val)}</text>"
                         )
-                    cursor_deg += span
-
-                ax.set_xlim(-1.05, 1.05)
-                ax.set_ylim(0.0, 1.05)
-                ax.set_aspect("equal", adjustable="box")
-                ax.axis("off")
-
-                # Center without nested st.columns (right_col is already a column; limit is one level).
-                buf = BytesIO()
-                fig.savefig(
-                    buf,
-                    format="png",
-                    dpi=110,
-                    bbox_inches="tight",
-                    pad_inches=0.01,
-                    transparent=True,
-                )
-                plt.close(fig)
-                b64 = base64.b64encode(buf.getvalue()).decode()
+                    cursor += span
+                parts.append("</svg>")
                 st.markdown(
-                    f'<div style="text-align:center"><img src="data:image/png;base64,{b64}" '
-                    'alt="Benign vs malignant counts" style="max-width:100%;height:auto;"/></div>',
+                    f'<div style="text-align:center">{"".join(parts)}</div>',
                     unsafe_allow_html=True,
                 )
 
